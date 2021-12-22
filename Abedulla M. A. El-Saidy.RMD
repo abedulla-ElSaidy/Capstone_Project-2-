@@ -1,0 +1,393 @@
+---
+title: "Capstone_Project [2]- edX HarvardX"
+subtitle: "Used Car Price Prediction"
+author: "Abedulla M. A. El-Saidy"
+date: "21‏/12‏/2021"
+output:
+  word_document:
+    toc: true
+    toc_depth: '3'
+    number_sections: true
+    fig_caption: true
+    df_print: kable
+    
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+knitr::opts_chunk$set(fig.align = 'center')
+```
+
+```{r echo=FALSE, out.width = '75%'}
+knitr::include_graphics('https://admin.mbarendezvous.com/uploadimages/bannerimage_1464713215.jpg')
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Loading packages, message=FALSE, warning=FALSE, echo=FALSE, results="hide"}
+#install.packages
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
+if(!require(earth)) install.packages("earth", repos = "http://cran.us.r-project.org")
+if(!require(pls)) install.packages("pls", repos = "http://cran.us.r-project.org")
+if(!require(earth)) install.packages("earth", repos = "http://cran.us.r-project.org")
+if(!require(glmnet)) install.packages("glmnet", repos = "http://cran.us.r-project.org")
+
+#load .packages
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(pls)
+library(earth)
+library(glmnet)
+
+```
+
+
+# Overview 
+For this project "Capstone_Project [2]- edX HarvardX", I will apply machine learning techniques that go beyond standard linear regression. I will use an available dataset "Audi Used Car" [[1](https://www.kaggle.com/adityadesai13/used-car-dataset-ford-and-mercedes?select=audi.csv)] to solve the problem of my choice. In this study, it is aimed to determine the best prediction model by using ML algorithms. 
+
+## Introduction
+Many countries have a high-volume second-hand car market. Today, used car sales given over the internet have accelerated this market even more. This situation has caused difficulties in determining the most suitable price for the vehicle to be bought or sold. The problem of determining the price of second-hand vehicles causes both buyers and sellers to have difficulties since it contains many variables. [[2](http://www.jomude.com/index.php/jomude/article/view/91)], the best model will be selected based on  RMSE.
+
+## Dataset
+Data was downloaded from KAGGLE, have been separated into files corresponding to each car manufacturer. I chose just the data for Audi brand.
+
+* The cleaned data set contains(Features):
+  + Information of price
+  + Transmission
+  + Mileage
+  + Fuel type
+  + Road tax
+  + Miles per gallon (mpg)
+  + Engine size
+  
+Data exploration and visualization will be presented in the next section.
+
+# Methods and Analysis
+## Data import
+Import the data from disc location
+audi_cars =read.csv("~/R/z/pr2/pr2/Data/audi.csv",sep = ",")
+
+## Training and Validation Partition
+split the dataset into training and validation
+
+1:  row numbers 
+RowNum = createDataPartition(audi_cars$price, p=0.80, list=FALSE)
+
+2: Create the training  dataset
+train_data <- audi_cars[RowNum,]
+
+3: Create the test dataset
+test_data <- audi_cars[-RowNum,]
+
+Take  a copy of the train test and data
+write.csv(train_data,"~/R/z/pr2/Data/train_data.csv")
+write.csv(test_data,"~/R/z/pr2/Data/test_data.csv")
+
+##Load Data
+```{r}
+audi_cars =read.csv("~/R/z/pr2/Data/audi.csv",sep = ",")
+train_data =read.csv("~/R/z/pr2/Data/train_data.csv",sep = ",")
+test_data =read.csv("~/R/z/pr2/Data/test_data.csv",sep = ",")
+```
+
+
+## Data charcterstics
+```{r}
+summary(audi_cars)
+glimpse(audi_cars)
+dim(audi_cars)
+```
+
+## Check na values
+```{r}
+sum(is.na(audi_cars))
+
+```
+No NA values
+
+
+
+
+## Data Exploration
+Visualizations to understand the data
+
+### Price per year
+
+```{r}
+audi_cars %>% mutate(Year = as.numeric(year)) %>% 
+  ggplot() +   geom_smooth(aes(x=Year, y=price),method="loess") + 
+  ggtitle("Price per year")
+```
+
+```{r}
+audi_cars %>% mutate(Year = as.factor(year)) %>% 
+  ggplot() +   geom_boxplot(aes(x=Year, y=price)) + 
+  ggtitle("Price per year")
+```
+
+We can conclude the more the year, the more the price
+
+### Price per model
+```{r}
+audi_cars %>% mutate(Model = (model)) %>% 
+  ggplot() +   geom_boxplot(aes(x=reorder(Model,price), y=((price)))) + 
+  labs(x="Model", y="price")+
+  ggtitle("Price per model")
+```
+
+We can conclude that some models have higher price like R8
+
+### Price per transmission
+
+```{r}
+pie( summary(as.factor(audi_cars$transmission)),col=rainbow(5))
+```
+
+```{r}
+audi_cars %>% mutate(TR = (transmission)) %>% 
+  ggplot() +   geom_boxplot(aes(x=reorder(TR,price), y=((price)))) +   labs(x="transmission", y="price")+
+  ggtitle("Price per transmission")
+```
+
+We can conclude that Manual cheaper than automatic
+
+### Price per milage
+
+```{r}
+audi_cars %>% ggplot() +   geom_smooth(aes(x=mileage, y=price)) + 
+  ggtitle("Price per milage")
+```
+
+We can conclude the more milage the little price
+
+### Price per fuelType
+
+```{r}
+audi_cars %>% mutate(fuel = (fuelType)) %>% 
+  ggplot() +   geom_boxplot(aes(x=reorder(fuel,price), y=((price)))) +   labs(x="fuelType", y="price")+
+  ggtitle("Price per fuelType")
+```
+
+We can conclude that Hybrid is more expensive
+
+### Price per tax
+
+```{r}
+audi_cars %>% ggplot() +   geom_smooth(aes(x=tax, y=price)) + 
+  ggtitle("Price per tax")
+```
+
+We can conclude no obvious relation between price and tax
+
+### Price per mpg
+
+```{r}
+audi_cars %>% ggplot() +   geom_smooth(aes(x=mpg, y=price)) + 
+  ggtitle("Price per mpg")
+```
+
+We can conclude inverse relation between price and mpg
+
+### Price per enginSize
+
+```{r}
+audi_cars %>% mutate(enginsize = (engineSize)) %>% 
+  ggplot() +   geom_boxplot(aes(x=reorder(enginsize,price), y=((price)))) + 
+  labs(x="enginsize", y="price")+
+  ggtitle("Price per enginsize")
+```
+
+We can conclude that high engin size costs alot
+
+### Numeric parameters correlation
+
+```{r}
+audi_cars %>% select(where(is.numeric)) %>% cor() 
+
+```
+
+The most effective numeric parameters to price are = year+mileage+mpg+engineSize
+
+## Modeling Methods
+
+### Model 1 - Base Line mean only
+```{r}
+m1_rm= RMSE(mean(train_data$price),train_data$price)
+m1_rm
+```
+
+
+### Linear models (lm)
+#### Model 2 (lm) -Predict price using year + mileage + mpg + engine Size  
+
+```{r, warning=FALSE}
+cv <- trainControl(  method = "repeatedcv",  number = 10,  repeats = 5)
+model_lm = train(price ~ year+mileage+mpg+engineSize , data=train_data, method='lm',trControl = cv)
+fit_lm = predict(model_lm,test_data)
+varimp = varImp(model_lm)
+plot(varimp, main="variable importance")
+lm2_RM = RMSE(test_data$price, fit_lm )
+comparison_lm=head(data.frame(Actual=test_data$price,Predicted=fit_lm))
+comparison_lm
+```
+
+#### Model 3 (lm) -Predict price using engineSize  
+
+```{r, warning=FALSE}
+model_lm_engin = train(price ~ engineSize , data=train_data, method='lm')
+fit_lm_engin = predict(model_lm_engin,test_data)
+lm3_RM = RMSE(test_data$price, fit_lm_engin )
+comparison_lm_engin=head(data.frame(Actual=test_data$price,Predicted=fit_lm_engin))
+comparison_lm_engin
+```
+
+#### Model 4 (lm) -Predict price using year* mileage * mpg* engineSize  
+
+```{r, warning=FALSE}
+model_lm_h = train(price ~ year*mileage*mpg*engineSize , data=train_data, method='lm')
+fit_lm_h = predict(model_lm_h,test_data)
+lm4_RM = RMSE(test_data$price, fit_lm_h )
+comparison_lm_h=head(data.frame(Actual=test_data$price,Predicted=fit_lm_h))
+comparison_lm_h
+```
+
+#### Model 5 (lm) -Predict price using polynomial
+
+```{r, warning=FALSE}
+model_poly = train(price ~ (model)+poly(year,3)+poly(mileage,3)+poly(mpg,3)+poly(engineSize,3) , data=train_data, method='lm',trControl = cv)
+fit_poly = predict(model_poly,test_data)
+lm5_RM = RMSE(test_data$price, fit_poly )
+comparison_poly=head(data.frame(Actual=test_data$price,Predicted=fit_poly))
+comparison_poly
+```
+
+### Model 6 (Generalized Additive Model using Splines- gam) -Predict price using year+mileage+mpg+engineSize
+
+```{r, warning=FALSE}
+model_gam = train(price ~ (year+mileage+mpg+engineSize) , data=train_data, method='gam',trControl = cv)
+fit_gam = predict(model_gam,test_data)
+gam6_RM = RMSE(test_data$price, fit_gam )
+comparison_gam=head(data.frame(Actual=test_data$price,Predicted=fit_gam))
+comparison_gam
+```
+
+### Model 7 (Partial Least Squares-pls) -Predict price using all
+
+```{r, warning=FALSE}
+model_pls = train(price ~ . , data=train_data, method='pls',trControl = cv,tuneLength = 30)
+fit_pls = predict(model_pls,test_data)
+pls7_RM = RMSE(test_data$price, fit_pls )
+comparison_pls=head(data.frame(Actual=test_data$price,Predicted=fit_pls))
+comparison_pls
+```
+
+### Model 8 (randomForest) -Predict price using all
+
+```{r, warning=FALSE}
+rf <- randomForest(price~., data=train_data, importance=TRUE,ntree=100,trControl = cv) 
+fit_rf <- predict(rf, test_data)
+varImpPlot(rf)
+plot(rf)
+rf8_RM = RMSE(test_data$price, fit_rf )
+comparison_rf=head(data.frame(Actual=test_data$price,Predicted=fit_rf))
+comparison_rf
+```
+
+### Model 9 (Decision Tree) -Predict price using all
+
+```{r, warning=FALSE}
+TRE = train(price~., data=train_data, method="rpart",trControl = cv)
+fit_TRE = predict(TRE, test_data)
+TRE9_RM = RMSE(test_data$price, fit_TRE)
+comparison_TRE=head(data.frame(Actual=test_data$price,Predicted=fit_TRE))
+comparison_TRE
+```
+
+### Model 10 (k-Nearest Neighbors) -Predict price using all
+
+```{r, warning=FALSE}
+knn = train(price~., data=train_data, method="knn",trControl = cv)
+fit_knn <- predict(knn, test_data)
+knn10_rm = RMSE(test_data$price, fit_knn )
+comparison_knn=head(data.frame(Actual=test_data$price,Predicted=fit_knn))
+comparison_knn
+
+```
+
+### Model 11 (Multivariate Adaptive Regression Spline- Earth) -Predict price using all
+
+```{r, warning=FALSE}
+model_earth = train(price ~ ., data=train_data, method='earth',trControl = cv)
+fit_earth = predict(model_earth, test_data)
+earth11_rm = RMSE(test_data$price, fit_earth )
+comparison_earth=head(data.frame(Actual=test_data$price,Predicted=fit_earth))
+comparison_earth
+
+```
+
+### Model 12 (Generalized Linear Model- glm) -Predict price using all
+
+```{r, warning=FALSE}
+model_glm = train(price ~ . , data=train_data, method='glm',trControl = cv)
+fit_glm = predict(model_glm,test_data)
+glm12_RM = RMSE(test_data$price, fit_glm )
+comparison_glm=head(data.frame(Actual=test_data$price,Predicted=fit_glm))
+comparison_glm
+```
+
+### Model 13 (The lasso) -Predict price using all
+
+```{r, warning=FALSE}
+model_lasso = train(price ~ . , data=train_data, method = 'glmnet', tuneGrid = expand.grid(alpha = 1, lambda = 1),trControl = cv)
+fit_lasso = predict(model_lasso,test_data)
+lasso13_RM = RMSE(test_data$price, fit_lasso )
+comparison_lasso=head(data.frame(Actual=test_data$price,Predicted=fit_lasso))
+comparison_lasso
+```
+
+# Results
+
+```{r}
+Rmse_Result=data.frame(method=c("Model 1 - Base Line", 
+                                "Model 2 (lm)", 
+                                "Model 3 (lm)", 
+                                "Model 4 (lm)", 
+                                "Model 5 (lm)", 
+                                "Model 6 (Generalized Additive- gam)", 
+                                "Model 7 (Partial Least Squares-pls)", 
+                                "Model 8 (randomForest)", 
+                                "Model 9 (Decision Tree)" ,
+                                "Model 10 (k-Nearest Neighbors)", 
+                                "Model 11 (Multivariate Adaptive- Earth)", 
+                                "Model 12 (Generalized Linear Model- glm)", 
+                                "Model 13 (The lasso)"),
+                       RMSE=c(m1_rm,
+                              lm2_RM,
+                              lm3_RM,
+                              lm4_RM,
+                              lm5_RM,
+                              gam6_RM,
+                              pls7_RM,
+                              rf8_RM,
+                              TRE9_RM, 
+                              knn10_rm, 
+                              earth11_rm,
+                              glm12_RM,
+                              lasso13_RM))
+arrange(Rmse_Result,(RMSE))
+```
+
+# Conclusion
+
+The goal of this project was to use machine learning models to predict the price of used car particularly Audi brand  and understand what features were important. In this report, I tried 13 model, The Best model (Random Forest) obtained an RMSE of `rf8_RM`  applied on the test_Data The most important features according to random forest to explain price are car model and engine size.
+
+
+# References
+1. https://www.kaggle.com/adityadesai13/used-car-dataset-ford-and-mercedes?select=audi.csv
+2. http://www.jomude.com/index.php/jomude/article/view/91
